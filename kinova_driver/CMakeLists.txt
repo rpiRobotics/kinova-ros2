@@ -12,6 +12,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+find_package(Boost REQUIRED COMPONENTS thread)
 find_package(ament_cmake REQUIRED)
 find_package(action_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -75,12 +76,12 @@ add_library(kinova_driver
   include/kinova/Kinova.API.USBCommandLayerUbuntu.h
   include/kinova/KinovaTypes.h
 )
-ament_target_dependencies(kinova_driver rclcpp rclcpp_action geometry_msgs tf2 tf2_ros sensor_msgs kinova_msgs angles control_msgs builtin_interfaces)
+ament_target_dependencies(kinova_driver Boost rclcpp rclcpp_action geometry_msgs tf2 tf2_ros sensor_msgs kinova_msgs angles control_msgs builtin_interfaces)
 
 add_executable(kinova_arm_driver src/nodes/kinova_arm_driver.cpp
 )
 target_link_libraries(kinova_arm_driver kinova_driver)
-ament_target_dependencies(kinova_arm_driver rclcpp rclcpp_action geometry_msgs tf2 tf2_ros sensor_msgs kinova_msgs angles control_msgs builtin_interfaces)
+ament_target_dependencies(kinova_arm_driver Boost rclcpp rclcpp_action geometry_msgs tf2 tf2_ros sensor_msgs kinova_msgs angles control_msgs builtin_interfaces)
 
 add_executable(joint_trajectory_action_server 
   src/joint_trajectory_action/joint_trajectory_action_server.cpp
