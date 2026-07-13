@@ -18,6 +18,8 @@
 
 
   <xacro:include filename="$(find kinova_description)/urdf/j2n6s300.xacro"/>
+  
+  <link name="arm_mount" />
 
   <xacro:j2n6s300  base_parent="arm_mount"/>
 
