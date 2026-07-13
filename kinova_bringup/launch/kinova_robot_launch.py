@@ -12,7 +12,6 @@ import yaml
 configurable_parameters = [
     {'name': 'use_urdf',              'default': "true"},
     {'name': 'kinova_robotType',      'default': "j2n6s300"},
-    {'name': 'kinova_robotName',      'default': "left"},
     {'name': 'kinova_robotSerial',    'default': "not_set"},
     {'name': 'use_jaco_v1_fingers',   'default': "true"},
     {'name': 'feedback_publish_rate', 'default': "0.1"},
@@ -41,11 +40,9 @@ def launch_setup(context, *args, **kwargs):
     )
     params_from_file = yaml_to_dict(_config_file)
 
-    robot_name = LaunchConfiguration("kinova_robotName").perform(context)
     robot_type = LaunchConfiguration("kinova_robotType").perform(context)
     kinova_driver = Node(
         package='kinova_driver',
-        name=robot_type+'_driver',
         executable='kinova_arm_driver',
         parameters=[set_configurable_parameters(configurable_parameters), params_from_file],
         output='screen',
@@ -69,13 +66,21 @@ def launch_setup(context, *args, **kwargs):
         executable='robot_state_publisher',
         remappings=[('joint_states', robot_type+'_driver/out/joint_state')],
         output='screen',
-        parameters=[{'robot_description': robot_desc},],
+        parameters=[{'robot_description': robot_desc, 'frame_prefix': LaunchConfiguration('frame_prefix')}],
         condition=IfCondition(LaunchConfiguration("use_urdf")),
     )
     
     return [kinova_driver, kinova_tf_updater, robot_state_publisher]
 
 def generate_launch_description():
-    return LaunchDescription(declare_configurable_parameters(configurable_parameters) + [
-        OpaqueFunction(function = launch_setup)
-    ])
+    return LaunchDescription(
+        declare_configurable_parameters(configurable_parameters) +
+        [
+            DeclareLaunchArgument(
+                'frame_prefix',
+                default_value='',
+                description='Prefix to prepend to TF frame IDs published by robot_state_publisher'
+            ),
+            OpaqueFunction(function=launch_setup)
+        ]
+    )
