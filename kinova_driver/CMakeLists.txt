@@ -29,6 +29,10 @@ find_package(visualization_msgs REQUIRED)
 find_package(angles REQUIRED)
 find_package(control_msgs REQUIRED)
 find_package(builtin_interfaces REQUIRED)
+find_package(PkgConfig REQUIRED)
+
+# Find libudev using PkgConfig
+pkg_check_modules(UDEV REQUIRED libudev)
 
 # generate_dynamic_reconfigure_options(
 #   #cfg/KinovaPositionConfig.cfg
@@ -113,6 +117,12 @@ ament_target_dependencies(kinova_tf_updater rclcpp angles geometry_msgs tf2 tf2_
 add_executable(kinova_interactive_control src/nodes/kinova_interactive_control.cpp)
 target_link_libraries(kinova_interactive_control kinova_driver)
 ament_target_dependencies(kinova_interactive_control interactive_markers)
+
+# Link libudev to your node
+target_include_directories(kinova_driver PRIVATE ${UDEV_INCLUDE_DIRS})
+target_link_libraries(kinova_driver ${UDEV_LIBRARIES})
+
+
 ###---
 #############
 ## Install ##
