@@ -18,8 +18,8 @@
 #include "kinova_driver/kinova_fingers_action.h"
 #include "kinova_driver/kinova_joint_trajectory_controller.h"
 
-constexpr char *KINOVA_VENDOR_ID = "22cd";
-constexpr char *KINOVA_JACO_PRODUCT_ID = "0000";
+constexpr const char *KINOVA_VENDOR_ID = "22cd";
+constexpr const char *KINOVA_JACO_PRODUCT_ID = "0000";
 
 void wait_for_kinova_arm()
 {
