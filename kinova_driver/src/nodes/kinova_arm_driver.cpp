@@ -81,7 +81,7 @@ void wait_for_kinova_arm()
 
     int fd = udev_monitor_get_fd(mon);
 
-    while (true)
+    while (rclcpp::ok())
     {
         struct pollfd pfd{};
         pfd.fd = fd;
