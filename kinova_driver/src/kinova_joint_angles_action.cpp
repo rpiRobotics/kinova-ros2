@@ -84,7 +84,7 @@ KinovaAnglesActionServer::KinovaAnglesActionServer(KinovaComm &arm_comm, const s
     tf_prefix_ = kinova_robotType + "_";
     action_server_ = rclcpp_action::create_server<ArmJointAngles>(
         node_handle_,
-        "/"+tf_prefix_+"driver/joint_angles",
+        tf_prefix_+"driver/joint_angles",
         std::bind(&KinovaAnglesActionServer::handle_goal, this, std::placeholders::_1, std::placeholders::_2),
         std::bind(&KinovaAnglesActionServer::handle_cancel, this, std::placeholders::_1),
         std::bind(&KinovaAnglesActionServer::handle_accepted, this, std::placeholders::_1));

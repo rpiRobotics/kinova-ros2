@@ -77,7 +77,7 @@ PositionalActionController::PositionalActionController(std::shared_ptr<rclcpp::N
     std::string robot_type = robot_name;
     std::string address;
 
-    address = "/" + robot_name + "/follow_joint_trajectory";
+    address = robot_name + "/follow_joint_trajectory";
     action_server_follow_ = rclcpp_action::create_server<FJTAS>(
         nh_,
         address,
@@ -85,7 +85,7 @@ PositionalActionController::PositionalActionController(std::shared_ptr<rclcpp::N
         std::bind(&PositionalActionController::handle_cancel, this, std::placeholders::_1),
         std::bind(&PositionalActionController::handle_accepted, this, std::placeholders::_1));
 
-    address = "/" + robot_name + "_driver/joint_angles";
+    address = robot_name + "_driver/joint_angles";
     action_client_arm_angles_ = rclcpp_action::create_client<AJAAC>(nh_, address);
 
     int arm_joint_num = robot_type[3]-'0';
@@ -126,7 +126,7 @@ PositionalActionController::PositionalActionController(std::shared_ptr<rclcpp::N
     
 
     if (!action_client_arm_angles_->wait_for_action_server()) {
-        RCLCPP_ERROR_STREAM(nh_->get_logger(), "Action server not found: /" + robot_name + "_driver/joint_angles");
+        RCLCPP_ERROR_STREAM(nh_->get_logger(), "Action server not found: " + robot_name + "_driver/joint_angles");
     }
     RCLCPP_INFO(nh_->get_logger(), "Waiting for an plan execution (goal) from Moveit");
 }

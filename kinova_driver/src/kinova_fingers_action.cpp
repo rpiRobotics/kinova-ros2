@@ -76,7 +76,7 @@ KinovaFingersActionServer::KinovaFingersActionServer(KinovaComm &arm_comm, const
     tf_prefix_ = kinova_robotType + "_";
     action_server_ = rclcpp_action::create_server<SetFingersPosition>(
         node_handle_,
-        "/"+tf_prefix_+"driver/finger_positions",
+        tf_prefix_+"driver/finger_positions",
         std::bind(&KinovaFingersActionServer::handle_goal, this, std::placeholders::_1, std::placeholders::_2),
         std::bind(&KinovaFingersActionServer::handle_cancel, this, std::placeholders::_1),
         std::bind(&KinovaFingersActionServer::handle_accepted, this, std::placeholders::_1));

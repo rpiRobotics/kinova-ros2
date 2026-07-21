@@ -10,7 +10,7 @@ GripperCommandActionController::GripperCommandActionController(std::shared_ptr<r
     has_active_goal_(false)
 {    
     std::string address;
-    address = "/" + robot_name + "_gripper/gripper_command";
+    address = robot_name + "_gripper/gripper_command";
 
     action_server_gripper_command_ = rclcpp_action::create_server<GCAS>(
         nh_,
@@ -19,7 +19,7 @@ GripperCommandActionController::GripperCommandActionController(std::shared_ptr<r
         std::bind(&GripperCommandActionController::handle_cancel, this, std::placeholders::_1),
         std::bind(&GripperCommandActionController::handle_accepted, this, std::placeholders::_1));
 
-    address = "/" + robot_name + "_driver/finger_positions";
+    address = robot_name + "_driver/finger_positions";
 
     action_client_set_finger_ = rclcpp_action::create_client<SFPAC>(
       nh_, address);
@@ -65,7 +65,7 @@ GripperCommandActionController::GripperCommandActionController(std::shared_ptr<r
     }
 
     if (!action_client_set_finger_->wait_for_action_server()) {
-        RCLCPP_ERROR_STREAM(nh_->get_logger(), "Action server not found: /" + robot_name + "_driver/finger_positions");
+        RCLCPP_ERROR_STREAM(nh_->get_logger(), "Action server not found: " + robot_name + "_driver/finger_positions");
     }
 
     RCLCPP_INFO(nh_->get_logger(), "Start Gripper_Command_Trajectory_Action server!");

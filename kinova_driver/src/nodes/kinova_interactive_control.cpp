@@ -262,7 +262,7 @@ void sendArmPoseGoal(geometry_msgs::msg::PoseStamped endeffector_pose)
 
     ArmPose_client_ptr_ = rclcpp_action::create_client<kinova_msgs::action::ArmPose>(
       nh,
-      "/"+tf_prefix_+"_driver/tool_pose");
+      tf_prefix_+"_driver/tool_pose");
 
     if (!ArmPose_client_ptr_->wait_for_action_server()) {
       RCLCPP_ERROR(nh->get_logger(), "Action server not available after waiting");
@@ -295,7 +295,7 @@ void sendArmJointGoal(const std::string marker_name, double joint_offset)
 {
     ArmJoint_client_ptr_ = rclcpp_action::create_client<kinova_msgs::action::ArmJointAngles>(
       nh,
-      "/"+tf_prefix_+"_driver/joint_angles");
+      tf_prefix_+"_driver/joint_angles");
 
     if (!ArmJoint_client_ptr_->wait_for_action_server()) {
       RCLCPP_ERROR(nh->get_logger(), "Action server not available after waiting");

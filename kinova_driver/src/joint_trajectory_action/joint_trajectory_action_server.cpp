@@ -16,7 +16,7 @@ JointTrajectoryActionController::JointTrajectoryActionController(std::shared_ptr
     //     ROS_ERROR_STREAM("Parameter "<<address<<" not found, make sure robot driver node is running");
     // }
 
-    address = "/" + robot_name + "/follow_joint_trajectory";
+    address = robot_name + "/follow_joint_trajectory";
 
     action_server_follow_ = rclcpp_action::create_server<FJTAS>(
         nh_,

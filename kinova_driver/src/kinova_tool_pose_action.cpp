@@ -112,7 +112,7 @@ KinovaPoseActionServer::KinovaPoseActionServer(KinovaComm &arm_comm, const std::
 
     action_server_ = rclcpp_action::create_server<ArmPose>(
         node_handle_,
-        "/"+tf_prefix_+"driver/tool_pose",
+        tf_prefix_+"driver/tool_pose",
         std::bind(&KinovaPoseActionServer::handle_goal, this, std::placeholders::_1, std::placeholders::_2),
         std::bind(&KinovaPoseActionServer::handle_cancel, this, std::placeholders::_1),
         std::bind(&KinovaPoseActionServer::handle_accepted, this, std::placeholders::_1));
