@@ -663,7 +663,7 @@ void KinovaArm::publishJointAngles(void)
     if (arm_joint_number_ >= 6)
     {
         joint_state.position[4] = angles::normalize_angle(kinova_angles.joint5 * M_PI/180);
-        joint_state.position[5] = kinova_angles.joint6 * M_PI/180;
+        joint_state.position[5] = angles::normalize_angle(kinova_angles.joint6 * M_PI/180);
     }
     if (arm_joint_number_ == 7)
     {
