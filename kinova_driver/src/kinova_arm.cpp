@@ -10,6 +10,7 @@
 #include <string>
 #include <boost/lexical_cast.hpp>
 #include <kinova_driver/kinova_ros_types.h>
+#include <angles/angles.h>
 
 namespace
 {
@@ -655,13 +656,13 @@ void KinovaArm::publishJointAngles(void)
 
     // Transform from Kinova DH algorithm to physical angles in radians, then place into vector array
     joint_state.position.resize(joint_total_number_);
-    joint_state.position[0] = kinova_angles.joint1 * M_PI/180;
+    joint_state.position[0] = angles::normalize_angle(kinova_angles.joint1 * M_PI/180);
     joint_state.position[1] = kinova_angles.joint2 * M_PI/180;
     joint_state.position[2] = kinova_angles.joint3 * M_PI/180;
-    joint_state.position[3] = kinova_angles.joint4 * M_PI/180;
+    joint_state.position[3] = angles::normalize_angle(kinova_angles.joint4 * M_PI/180);
     if (arm_joint_number_ >= 6)
     {
-        joint_state.position[4] = kinova_angles.joint5 * M_PI/180;
+        joint_state.position[4] = angles::normalize_angle(kinova_angles.joint5 * M_PI/180);
         joint_state.position[5] = kinova_angles.joint6 * M_PI/180;
     }
     if (arm_joint_number_ == 7)
