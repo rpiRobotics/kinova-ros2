@@ -63,8 +63,8 @@ JointTrajectoryActionController::JointTrajectoryActionController(std::shared_ptr
     nh_->get_parameter("constraints/stopped_velocity_tolerance", stopped_velocity_tolerance_);
 
     pub_controller_command_ = nh_->create_publisher<trajectory_msgs::msg::JointTrajectory>
-            ("/"+ robot_name + "_driver/trajectory_controller/command", 1);
-    sub_controller_state_ = nh_->create_subscription<control_msgs::action::FollowJointTrajectory_Feedback>("/" + robot_name + "_driver/trajectory_controller/state",
+            (robot_name + "_driver/trajectory_controller/command", 1);
+    sub_controller_state_ = nh_->create_subscription<control_msgs::action::FollowJointTrajectory_Feedback>(robot_name + "_driver/trajectory_controller/state",
             1, std::bind(&JointTrajectoryActionController::controllerStateCB, this, std::placeholders::_1));
     watchdog_timer_ = nh_->create_wall_timer(std::chrono::seconds(1), std::bind(&JointTrajectoryActionController::watchdog, this));
 

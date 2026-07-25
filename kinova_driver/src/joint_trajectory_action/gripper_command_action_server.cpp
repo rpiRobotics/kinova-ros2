@@ -49,7 +49,7 @@ GripperCommandActionController::GripperCommandActionController(std::shared_ptr<r
         gripper_joint_names_[i] = "joint_finger_" + std::to_string(i+1);
     }
 
-    address = "/" + robot_name + "_driver/out/finger_position";
+    address = obot_name + "_driver/out/finger_position";
     sub_fingers_state_ = nh_->create_subscription<kinova_msgs::msg::FingerPosition>(address, 1, std::bind(&GripperCommandActionController::controllerStateCB, this, std::placeholders::_1));
 
     long unsigned int started_waiting_for_controller = nh_->get_clock()->now().seconds();
