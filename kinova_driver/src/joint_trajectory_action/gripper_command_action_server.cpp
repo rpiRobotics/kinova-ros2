@@ -1,4 +1,5 @@
 #include <kinova_driver/gripper_command_action_server.h>
+#include <rclcpp/utilities.hpp>
 
 using namespace kinova;
 
@@ -188,27 +189,25 @@ void GripperCommandActionController::controllerStateCB(const kinova_msgs::msg::F
     }
 }
 
-
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
     rclcpp::init(argc, argv);
-    std::shared_ptr<rclcpp::Node> node = std::make_shared<rclcpp::Node>("gripper_command_action_server");
 
-    // Retrieve the (non-option) argument:
-     std::string robot_name = "";
-    if ( (argc <= 1) || (argv[argc-1] == NULL) ) // there is NO input...
+    auto args = rclcpp::remove_ros_arguments(argc, argv);
+
+    if (args.size() < 2)
     {
-        std::cerr << "No kinova_robot_name provided in the argument!" << std::endl;
+        std::cerr << "No kinova_robot_name provided!" << std::endl;
         return -1;
     }
-    else
-    {
-        robot_name = argv[argc-1];
-    }
-    kinova::GripperCommandActionController gcac(node,robot_name);
+
+    std::string robot_name = args[1];
+
+    auto node = std::make_shared<rclcpp::Node>(
+        "gripper_command_action_server");
+
+    kinova::GripperCommandActionController gcac(node, robot_name);
 
     rclcpp::spin(node);
     rclcpp::shutdown();
-    return 0;
 }
-
