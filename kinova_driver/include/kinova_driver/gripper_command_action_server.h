@@ -19,7 +19,7 @@ using GoalHandleSFPAC = rclcpp_action::ClientGoalHandle<SFPAC>;
 class GripperCommandActionController
     {
     public:
-        GripperCommandActionController(std::shared_ptr<rclcpp::Node> n, std::string &robot_name);
+        GripperCommandActionController(std::shared_ptr<rclcpp::Node> n, std::string &robot_name, std::string &joint_namespace);
         ~GripperCommandActionController();
 
         void handle_accepted(const std::shared_ptr<GoalHandleGCAS>gh);
@@ -34,6 +34,7 @@ class GripperCommandActionController
 
         rclcpp::Subscription<kinova_msgs::msg::FingerPosition>::SharedPtr sub_fingers_state_;
 
+        std::string joint_namespace_;
         bool has_active_goal_;
         bool is_client_active = false;
         std::shared_ptr<GoalHandleGCAS> active_goal_;

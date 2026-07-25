@@ -17,7 +17,7 @@ using GoalHandleFJTAS = rclcpp_action::ServerGoalHandle<FJTAS>;
         typedef std::vector<trajectory_msgs::msg::JointTrajectoryPoint> JTPointVector;
 
     public:
-        JointTrajectoryActionController(std::shared_ptr<rclcpp::Node> n, std::string &robot_name);
+        JointTrajectoryActionController(std::shared_ptr<rclcpp::Node> n, std::string &robot_name, std::string &joint_namespace);
         ~JointTrajectoryActionController();
 
         void handle_accepted(const std::shared_ptr<GoalHandleFJTAS>gh);
@@ -33,6 +33,7 @@ using GoalHandleFJTAS = rclcpp_action::ServerGoalHandle<FJTAS>;
         rclcpp::Subscription<control_msgs::action::FollowJointTrajectory_Feedback>::SharedPtr sub_controller_state_;
         rclcpp::TimerBase::SharedPtr watchdog_timer_;
 
+        std::string joint_namespace_;
         bool has_active_goal_;
         bool first_fb_;
         rclcpp::Time start_time_;
@@ -47,6 +48,8 @@ using GoalHandleFJTAS = rclcpp_action::ServerGoalHandle<FJTAS>;
         double goal_time_constraint_;
         double stopped_velocity_tolerance_;
 
+        std::string stripNamespace(const std::string &name) const;
+        std::vector<std::string> stripNamespace(const std::vector<std::string> &names) const;
         void goalCBFollow(std::shared_ptr<GoalHandleFJTAS> gh);
         // void cancelCBFollow(FJTAS::GoalHandle gh);
         void controllerStateCB(const control_msgs::action::FollowJointTrajectory_Feedback::SharedPtr msg);

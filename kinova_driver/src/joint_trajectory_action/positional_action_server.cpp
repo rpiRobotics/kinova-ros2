@@ -1,4 +1,3 @@
-
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 
@@ -25,7 +24,7 @@ using GoalHandleAJAAC = rclcpp_action::ClientGoalHandle<AJAAC>;
         typedef std::vector<trajectory_msgs::msg::JointTrajectoryPoint> JTPointVector;
 
     public:
-        PositionalActionController(std::shared_ptr<rclcpp::Node> n, std::string &robot_name);
+        PositionalActionController(std::shared_ptr<rclcpp::Node> n, std::string &robot_name, std::string &joint_namespace);
         ~PositionalActionController();
 
         void handle_accepted(const std::shared_ptr<GoalHandleFJTAS>gh);
@@ -52,14 +51,18 @@ using GoalHandleAJAAC = rclcpp_action::ClientGoalHandle<AJAAC>;
         rclcpp_action::Client<AJAAC>::SendGoalOptions send_goal_options;
 
         bool goal_succeeded, goal_canceled, goal_aborted, goal_error;
-        bool final_goal_aborted = false;
-        bool final_goal_succeeded = false;
 
         std::vector<std::string> joint_names_;
         std::map<std::string,double> goal_constraints_;
         std::map<std::string,double> trajectory_constraints_;
         double goal_time_constraint_;
         double stopped_velocity_tolerance_;
+
+        // Namespace prefix (without trailing slash) that incoming joint names
+        // may carry, e.g. "oarbot_silver" for "oarbot_silver/j2n6s300_joint_1".
+        std::string joint_namespace_;
+        std::string stripNamespace(const std::string &name) const;
+        std::vector<std::string> stripNamespace(const std::vector<std::string> &names) const;
 
         void goalCBFollow(std::shared_ptr<GoalHandleFJTAS> gh);
         void result_callback(const rclcpp_action::ClientGoalHandle<AJAAC>::WrappedResult & result);
@@ -71,10 +74,17 @@ using GoalHandleAJAAC = rclcpp_action::ClientGoalHandle<AJAAC>;
 
 using namespace kinova;
 
-PositionalActionController::PositionalActionController(std::shared_ptr<rclcpp::Node> n, std::string &robot_name):
+PositionalActionController::PositionalActionController(std::shared_ptr<rclcpp::Node> n, std::string &robot_name, std::string &joint_namespace):
     nh_(n),
-    has_active_goal_(false)
+    has_active_goal_(false),
+    joint_namespace_(joint_namespace)
 {
+    // Normalize so joint_namespace_ never has a leading/trailing '/'.
+    while (!joint_namespace_.empty() && joint_namespace_.front() == '/')
+        joint_namespace_.erase(joint_namespace_.begin());
+    while (!joint_namespace_.empty() && joint_namespace_.back() == '/')
+        joint_namespace_.pop_back();
+
     std::string robot_type = robot_name;
     std::string address;
 
@@ -158,6 +168,29 @@ static bool setsEqual(const std::vector<std::string> &a, const std::vector<std::
 }
 
 
+std::string PositionalActionController::stripNamespace(const std::string &name) const
+{
+    if (joint_namespace_.empty())
+        return name;
+
+    const std::string prefix = joint_namespace_ + "/";
+    if (name.compare(0, prefix.size(), prefix) == 0)
+        return name.substr(prefix.size());
+
+    return name;
+}
+
+std::vector<std::string> PositionalActionController::stripNamespace(const std::vector<std::string> &names) const
+{
+    std::vector<std::string> stripped;
+    stripped.reserve(names.size());
+    for (const auto &name : names)
+        stripped.push_back(stripNamespace(name));
+
+    return stripped;
+}
+
+
 void PositionalActionController::watchdog()
 {
     rclcpp::Time now = nh_->get_clock()->now();
@@ -182,6 +215,11 @@ rclcpp_action::CancelResponse PositionalActionController::handle_cancel(const st
 void PositionalActionController::handle_accepted(const std::shared_ptr<GoalHandleFJTAS> goal_handle)
 {
     RCLCPP_INFO(nh_->get_logger(), "Joint_trajectory_action_server accepted goal!");
+    // Must be set before the goal can ever be resolved (succeed/abort), and
+    // must happen here (not in goalCBFollow) so it's ready before any
+    // async_send_goal result can come back.
+    active_goal_ = goal_handle;
+    has_active_goal_ = true;
     std::thread
     {
         std::bind(&PositionalActionController::goalCBFollow, this, std::placeholders::_1), goal_handle
@@ -207,22 +245,35 @@ void PositionalActionController::result_callback(const rclcpp_action::ClientGoal
             RCLCPP_ERROR(nh_->get_logger(), "Unknown result code");
             return;
     }
-    if (final_goal_succeeded) active_goal_->succeed(active_result_);
-    else if (final_goal_aborted) active_goal_->abort(active_result_);
+    // Resolving the outer FollowJointTrajectory goal (succeed/abort) happens
+    // in goalCBFollow's loop below, which has the full-trajectory context
+    // (i.e. knows whether this was the last point).
 }
 
 void PositionalActionController::goalCBFollow(std::shared_ptr<GoalHandleFJTAS> gh)
 {
     const auto goal = gh->get_goal();
     RCLCPP_INFO(nh_->get_logger(), "Joint_trajectory_action_server received goal!");
-    
-    // Sends the trajectory along to the controller
+
+    active_result_ = std::make_shared<FJTAS::Result>();
+
+    // Sends the trajectory along to the controller. Incoming joint names may be
+    // namespaced (e.g. "oarbot_silver/j2n6s300_joint_1"); strip that prefix so
+    // current_traj_.joint_names lines up with our own (un-namespaced) joint_names_.
     current_traj_ = goal->trajectory;
+    current_traj_.joint_names = stripNamespace(goal->trajectory.joint_names);
 
     std::vector<AJAAC::Goal> client_goals;
     send_goal_options = rclcpp_action::Client<AJAAC>::SendGoalOptions();
     send_goal_options.result_callback = std::bind(&PositionalActionController::result_callback, this, std::placeholders::_1);
     for (int i = 0; i < current_traj_.points.size(); i++) {
+        if (current_traj_.points[i].positions.size() < 7)
+        {
+            RCLCPP_ERROR(nh_->get_logger(), "Trajectory point has fewer than 7 joint positions; aborting goal");
+            gh->abort(active_result_);
+            return;
+        }
+
         auto client_goal = AJAAC::Goal();
         client_goal.angles.joint1 = deg<float>(current_traj_.points[i].positions[0]);
         client_goal.angles.joint2 = deg<float>(current_traj_.points[i].positions[1]);
@@ -239,8 +290,6 @@ void PositionalActionController::goalCBFollow(std::shared_ptr<GoalHandleFJTAS> g
     goal_canceled = false;
     goal_aborted = false;
     goal_error = false;
-    bool final_goal_aborted = false;
-    bool final_goal_succeeded = false;
 
     int i = 0;
     action_client_arm_angles_->async_send_goal(client_goals[i], send_goal_options);
@@ -248,15 +297,15 @@ void PositionalActionController::goalCBFollow(std::shared_ptr<GoalHandleFJTAS> g
     while (rclcpp::ok()) {
         if (goal_canceled || goal_aborted || goal_error) {
             RCLCPP_INFO(nh_->get_logger(), "Final goal was not reached successfully");
-            // active_goal_->abort(active_result_);
-            final_goal_aborted = true;
+            active_goal_->abort(active_result_);
+            has_active_goal_ = false;
             break;
         }
         else if (goal_succeeded) {
             if (i == client_goals.size()) {
                 RCLCPP_INFO(nh_->get_logger(), "Reached goal");
-                // active_goal_->succeed(active_result_);
-                final_goal_succeeded = true;
+                active_goal_->succeed(active_result_);
+                has_active_goal_ = false;
                 break;
             }
             else {
@@ -285,10 +334,15 @@ int main(int argc, char **argv)
 
     std::string robot_name = args[1];
 
+    // Optional: namespace prefix appearing on incoming joint names, e.g.
+    // "oarbot_silver" for joints named "oarbot_silver/j2n6s300_joint_1".
+    // Defaults to empty (no namespace) if not provided.
+    std::string joint_namespace = (args.size() >= 3) ? args[2] : "";
+
     auto node = std::make_shared<rclcpp::Node>(
         "arm_joint_angles_action_server");
 
-    kinova::PositionalActionController jtac(node, robot_name);
+    kinova::PositionalActionController jtac(node, robot_name, joint_namespace);
 
     rclcpp::spin(node);
     rclcpp::shutdown();

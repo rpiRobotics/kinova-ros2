@@ -6,10 +6,15 @@ using namespace kinova;
 
 
 
-GripperCommandActionController::GripperCommandActionController(std::shared_ptr<rclcpp::Node> n, std::string &robot_name):
+GripperCommandActionController::GripperCommandActionController(std::shared_ptr<rclcpp::Node> n, std::string &robot_name, std::string &joint_namespace):
     nh_(n),
-    has_active_goal_(false)
-{    
+    has_active_goal_(false),
+    joint_namespace_(joint_namespace)
+{
+    // Note: control_msgs::action::GripperCommand's goal has no joint_names
+    // field (just position/max_effort), so there's nothing to de-namespace
+    // here today. joint_namespace_ is stored for consistency with the other
+    // action servers and in case gripper_joint_names_ needs it later.
     std::string address;
     address = robot_name + "_gripper/gripper_command";
 
@@ -203,10 +208,14 @@ int main(int argc, char **argv)
 
     std::string robot_name = args[1];
 
+    // Optional: namespace prefix used elsewhere for joint names, kept here
+    // only so all three action servers share the same launch signature.
+    std::string joint_namespace = (args.size() >= 3) ? args[2] : "";
+
     auto node = std::make_shared<rclcpp::Node>(
         "gripper_command_action_server");
 
-    kinova::GripperCommandActionController gcac(node, robot_name);
+    kinova::GripperCommandActionController gcac(node, robot_name, joint_namespace);
 
     rclcpp::spin(node);
     rclcpp::shutdown();

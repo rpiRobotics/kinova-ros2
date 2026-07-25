@@ -3,10 +3,18 @@
 
 using namespace kinova;
 
-JointTrajectoryActionController::JointTrajectoryActionController(std::shared_ptr<rclcpp::Node> n, std::string &robot_name):
+JointTrajectoryActionController::JointTrajectoryActionController(std::shared_ptr<rclcpp::Node> n, std::string &robot_name, std::string &joint_namespace):
     nh_(n),
-    has_active_goal_(false)
+    has_active_goal_(false),
+    joint_namespace_(joint_namespace)
 {
+    // Normalize so joint_namespace_ never has a leading/trailing '/'.
+    // This lets us always compare against "<namespace>/<joint_name>" consistently.
+    while (!joint_namespace_.empty() && joint_namespace_.front() == '/')
+        joint_namespace_.erase(joint_namespace_.begin());
+    while (!joint_namespace_.empty() && joint_namespace_.back() == '/')
+        joint_namespace_.pop_back();
+
     std::string robot_type = robot_name;
     std::string address;
 
@@ -34,7 +42,7 @@ JointTrajectoryActionController::JointTrajectoryActionController(std::shared_ptr
         joint_names_[i] = robot_name + "_joint_" + std::to_string(i+1);
     }
 
-    int goal_time_constraint_ = 0;
+    goal_time_constraint_ = 0;
     if (!nh_->has_parameter("constraints/goal_time"))
         nh_->declare_parameter("constraints/goal_time", goal_time_constraint_);
     nh_->get_parameter("constraints/goal_time", goal_time_constraint_);
@@ -57,7 +65,7 @@ JointTrajectoryActionController::JointTrajectoryActionController(std::shared_ptr
         trajectory_constraints_[joint_names_[i]] = t;
     }
 
-    double stopped_velocity_tolerance_ = 0.01;
+    stopped_velocity_tolerance_ = 0.05;
     if (!nh_->has_parameter("constraints/stopped_velocity_tolerance"))
         nh_->declare_parameter("constraints/stopped_velocity_tolerance", stopped_velocity_tolerance_);
     nh_->get_parameter("constraints/stopped_velocity_tolerance", stopped_velocity_tolerance_);
@@ -114,10 +122,36 @@ static bool setsEqual(const std::vector<std::string> &a, const std::vector<std::
 }
 
 
+// Strips a leading "<joint_namespace_>/" from a single joint name, if present.
+// If joint_namespace_ is empty, or the name isn't namespaced, the name is
+// returned unchanged.
+std::string JointTrajectoryActionController::stripNamespace(const std::string &name) const
+{
+    if (joint_namespace_.empty())
+        return name;
+
+    const std::string prefix = joint_namespace_ + "/";
+    if (name.compare(0, prefix.size(), prefix) == 0)
+        return name.substr(prefix.size());
+
+    return name;
+}
+
+// Vector overload: strips the namespace from every joint name in the list.
+std::vector<std::string> JointTrajectoryActionController::stripNamespace(const std::vector<std::string> &names) const
+{
+    std::vector<std::string> stripped;
+    stripped.reserve(names.size());
+    for (const auto &name : names)
+        stripped.push_back(stripNamespace(name));
+
+    return stripped;
+}
+
+
 void JointTrajectoryActionController::watchdog()
 {
     rclcpp::Time now = nh_->get_clock()->now();
-            has_active_goal_ = false;
 
     // Aborts the active goal if the controller does not appear to be active.
     if (has_active_goal_)
@@ -172,9 +206,21 @@ rclcpp_action::CancelResponse JointTrajectoryActionController::handle_cancel(con
 
 void JointTrajectoryActionController::handle_accepted(const std::shared_ptr<GoalHandleFJTAS> goal_handle)
 {
-    // active_goal_ = goal_handle;
-    // has_active_goal_ = true;
-    // first_fb_ = true;
+    // Cancel any previous goal BEFORE active_goal_ is overwritten below —
+    // otherwise this check would end up canceling the goal we're about to
+    // accept instead of a genuinely stale one.
+    if (has_active_goal_ && active_goal_ && active_goal_ != goal_handle)
+    {
+        RCLCPP_INFO(nh_->get_logger(), "Canceling previous goal in favor of the new one");
+        active_goal_->canceled(std::make_shared<FJTAS::Result>());
+    }
+
+    // Must be set here (not in goalCBFollow) so it's ready before any
+    // controller feedback can arrive; goalCBFollow runs on a detached thread
+    // and might not have run yet by the time feedback starts coming in.
+    active_goal_ = goal_handle;
+    has_active_goal_ = true;
+    first_fb_ = true;
     RCLCPP_INFO(nh_->get_logger(), "Joint_trajectory_action_server accepted goal!");
  	// this needs to return quickly to avoid blocking the executor, so spin up a new thread
     std::thread
@@ -190,30 +236,25 @@ void JointTrajectoryActionController::goalCBFollow(std::shared_ptr<GoalHandleFJT
 
     active_result_ = std::make_shared<FJTAS::Result>();
 
+    // The incoming goal's joint names may be namespaced (e.g. "oarbot_silver/j2n6s300_joint_1")
+    // while joint_names_ is stored without the namespace prefix, so strip it before comparing.
+    std::vector<std::string> incoming_joint_names = stripNamespace(goal->trajectory.joint_names);
+
     // Ensures that the joints in the goal match the joints we are commanding.
-    if (!setsEqual(joint_names_, goal->trajectory.joint_names))
+    if (!setsEqual(joint_names_, incoming_joint_names))
     {
         RCLCPP_ERROR(nh_->get_logger(), "Joints on incoming goal don't match our joints");
         gh->abort(active_result_);
+        has_active_goal_ = false;
         return;
     }
 
 
-    // Cancels the currently active goal.
-    if (has_active_goal_)
-    {
-        // Stops the controller.
-        trajectory_msgs::msg::JointTrajectory empty;
-        empty.joint_names = joint_names_;
-        //pub_controller_command_->publish(empty);
-
-        // Marks the current goal as canceled.
-        active_goal_->canceled(active_result_);
-        has_active_goal_ = false;
-    }
-
-    // Sends the trajectory along to the controller
+    // Sends the trajectory along to the controller, using the de-namespaced
+    // joint names so downstream consumers (and our own bookkeeping below)
+    // don't have to know about the namespace at all.
     current_traj_ = goal->trajectory;
+    current_traj_.joint_names = incoming_joint_names;
     pub_controller_command_->publish(current_traj_);
     RCLCPP_INFO(nh_->get_logger(), "Joint_trajectory_action_server published goal via command publisher!");
 }
@@ -244,7 +285,12 @@ void JointTrajectoryActionController::controllerStateCB(const control_msgs::acti
         return;
     }
 
-    if (!setsEqual(joint_names_, msg->joint_names))
+    // The controller may echo back namespaced joint names too, so strip
+    // before comparing against our (un-namespaced) joint_names_ and before
+    // using them as keys into goal_constraints_.
+    std::vector<std::string> feedback_joint_names = stripNamespace(msg->joint_names);
+
+    if (!setsEqual(joint_names_, feedback_joint_names))
     {
         RCLCPP_ERROR_ONCE(nh_->get_logger(), "Joint names from the controller don't match our joint names.");
         return;
@@ -257,11 +303,11 @@ void JointTrajectoryActionController::controllerStateCB(const control_msgs::acti
     {
         // Checks that we have ended inside the goal constraints
         bool inside_goal_constraints = true;
-        for (size_t i = 0; i < msg->joint_names.size() && inside_goal_constraints; ++i)
+        for (size_t i = 0; i < feedback_joint_names.size() && inside_goal_constraints; ++i)
         {
             // computing error from goal pose
             double abs_error = fabs(msg->actual.positions[i] - current_traj_.points[last].positions[i]);
-            double goal_constraint = goal_constraints_[msg->joint_names[i]];
+            double goal_constraint = goal_constraints_[feedback_joint_names[i]];
             if (goal_constraint >= 0 && abs_error > goal_constraint)
                 inside_goal_constraints = false;
             // It's important to be stopped if that's desired.
@@ -305,10 +351,15 @@ int main(int argc, char **argv)
 
     std::string robot_name = args[1];
 
+    // Optional: the namespace prefix that will show up on incoming joint
+    // names, e.g. "oarbot_silver" for joints named "oarbot_silver/j2n6s300_joint_1".
+    // Defaults to empty (no namespace) if not provided.
+    std::string joint_namespace = (args.size() >= 3) ? args[2] : "";
+
     auto node = std::make_shared<rclcpp::Node>(
         "follow_joint_trajectory_action_server");
 
-    kinova::JointTrajectoryActionController jtac(node, robot_name);
+    kinova::JointTrajectoryActionController jtac(node, robot_name, joint_namespace);
 
     rclcpp::spin(node);
     rclcpp::shutdown();
