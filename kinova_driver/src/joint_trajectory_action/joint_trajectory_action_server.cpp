@@ -153,6 +153,18 @@ void JointTrajectoryActionController::watchdog()
 {
     rclcpp::Time now = nh_->get_clock()->now();
 
+    // Backstop: resolve the cancellation here if no further controller
+    // feedback arrives to do it in controllerStateCB(). By now the goal
+    // handle is genuinely in CANCELING (handle_cancel already returned
+    // ACCEPT), so canceled() is a legal transition.
+    if (has_active_goal_ && active_goal_->is_canceling())
+    {
+        RCLCPP_INFO(nh_->get_logger(), "Goal is canceling, marking as canceled");
+        active_goal_->canceled(active_result_);
+        has_active_goal_ = false;
+        return;
+    }
+
     // Aborts the active goal if the controller does not appear to be active.
     if (has_active_goal_)
     {
@@ -193,14 +205,14 @@ rclcpp_action::GoalResponse JointTrajectoryActionController::handle_goal(const r
 
 rclcpp_action::CancelResponse JointTrajectoryActionController::handle_cancel(const std::shared_ptr<GoalHandleFJTAS> gh)
 {
-    if (active_goal_ == gh)
-    {
-        // Marks the current goal as canceled.
-        active_goal_->canceled(active_result_);
-        has_active_goal_ = false;
-    }
     RCLCPP_INFO(nh_->get_logger(), "Received request to cancel goal");
     (void) gh;
+    // Only decide whether the cancellation is accepted here. The goal handle
+    // is still EXECUTING at this point (it only moves to CANCELING after we
+    // return ACCEPT), and canceled() is only a legal transition from
+    // CANCELING. Calling it here throws and crashes the node. The actual
+    // canceled() transition happens once is_canceling() is true, checked in
+    // controllerStateCB()/watchdog() below.
     return rclcpp_action::CancelResponse::ACCEPT;
 }
 
@@ -211,8 +223,12 @@ void JointTrajectoryActionController::handle_accepted(const std::shared_ptr<Goal
     // accept instead of a genuinely stale one.
     if (has_active_goal_ && active_goal_ && active_goal_ != goal_handle)
     {
-        RCLCPP_INFO(nh_->get_logger(), "Canceling previous goal in favor of the new one");
-        active_goal_->canceled(std::make_shared<FJTAS::Result>());
+        RCLCPP_INFO(nh_->get_logger(), "Aborting previous goal in favor of the new one");
+        // The previous goal is EXECUTING (not CANCELING), and canceled() is
+        // only a legal transition from CANCELING - calling it here would
+        // throw. abort() is a legal transition from EXECUTING, so use that
+        // to preempt.
+        active_goal_->abort(std::make_shared<FJTAS::Result>());
     }
 
     // Must be set here (not in goalCBFollow) so it's ready before any
@@ -269,6 +285,19 @@ void JointTrajectoryActionController::controllerStateCB(const control_msgs::acti
 
     if (!has_active_goal_)
         return;
+
+    // Resolve a pending cancel request here. By now the goal handle is
+    // genuinely in CANCELING (handle_cancel already returned ACCEPT), so
+    // canceled() is a legal transition.
+    if (active_goal_->is_canceling())
+    {
+        RCLCPP_INFO(nh_->get_logger(), "Goal is canceling, marking as canceled");
+        active_goal_->canceled(active_result_);
+        has_active_goal_ = false;
+        first_fb_ = true;
+        return;
+    }
+
     if (current_traj_.points.empty())
         return;
 
