@@ -65,7 +65,7 @@ JointTrajectoryActionController::JointTrajectoryActionController(std::shared_ptr
         trajectory_constraints_[joint_names_[i]] = t;
     }
 
-    stopped_velocity_tolerance_ = 0.05;
+    stopped_velocity_tolerance_ = 0.1;
     if (!nh_->has_parameter("constraints/stopped_velocity_tolerance"))
         nh_->declare_parameter("constraints/stopped_velocity_tolerance", stopped_velocity_tolerance_);
     nh_->get_parameter("constraints/stopped_velocity_tolerance", stopped_velocity_tolerance_);
