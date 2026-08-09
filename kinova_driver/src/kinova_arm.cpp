@@ -572,26 +572,17 @@ void KinovaArm::cartesianVelocityWithFingersCallback(const kinova_msgs::msg::Pos
         cartesian_velocities_.ThetaY = cartesian_vel_with_fingers->twist_angular_y;
         cartesian_velocities_.ThetaZ = cartesian_vel_with_fingers->twist_angular_z;
 
-        float finger_max_turn = 6800.0; // position units
+        // Convert closure percentage (0..100) into API finger units (0..6800)
+        float finger_max_turn = 6800.0f; // API position units
         float fingers_closure_percentage = cartesian_vel_with_fingers->fingers_closure_percentage;
 
-        // If the arm moves in velocity, the fingers will too no matter what
-        // We need to see if the fingers have reached the correct position, and if not, set the Fingers command accordingly to match the command
         FingerAngles fingers;
-        kinova_comm_.getFingerPositions(fingers);
-        float error = fingers_closure_percentage / 100.0 * finger_max_turn - fingers.Finger1; 
-        float kp = 2.0; // tried that, it works
-        float command = 0.0;
-        if (fabs(error) > 20.0) // arbitrary position units
-        {
-            command = kp * error;
-        } 
+        float target = fingers_closure_percentage / 100.0f * finger_max_turn;
 
-
-        // Set command and send to kinova_comm
-        fingers.Finger1 = command;
-        fingers.Finger2 = command;
-        fingers.Finger3 = command;
+        // Set absolute target positions (API units)
+        fingers.Finger1 = target;
+        fingers.Finger2 = target;
+        fingers.Finger3 = target;
 
         // orientation velocity of cartesian_velocities_ is based on twist.angular
         kinova_comm_.setCartesianVelocitiesWithFingers(cartesian_velocities_, fingers);
