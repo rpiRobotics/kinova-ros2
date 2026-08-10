@@ -216,15 +216,15 @@ void JointTrajectoryController::pub_joint_vel()
     if (traj_command_points_index_ <  kinova_angle_command_.size() && rclcpp::ok())
     {
         const rclcpp::Duration current_time_from_start = nh_->get_clock()->now() - time_pub_joint_vel_;
-        // check for remaining motion time if in last command
-        if(traj_command_points_index_ == kinova_angle_command_.size()-1)
+
+        // Hold the current point velocity until the next point's timestamp.
+        // Do not advance the index based on the current point's own time, because
+        // that can make the controller stop early.
+        while (traj_command_points_index_ + 1 < traj_command_points_.size() &&
+               current_time_from_start >= traj_command_points_[traj_command_points_index_ + 1].time_from_start)
         {
-            const double current_time = current_time_from_start.nanoseconds() / 1000000000;
-            for(int i=0; i<number_joint_; i++)
-            {
-                if(current_time > remaining_motion_time[i]) 
-                    current_velocity_command[i] = 0;
-            }
+            ++traj_command_points_index_;
+            RCLCPP_INFO_STREAM(nh_->get_logger(), "Moved to point " << traj_command_points_index_);
         }
 
         joint_velocity_msg.joint1 = kinova_angle_command_[traj_command_points_index_].Actuator1;
@@ -244,25 +244,6 @@ void JointTrajectoryController::pub_joint_vel()
 //                          std::endl <<" joint_velocity_msg.joint6: " << joint_velocity_msg.joint6 * M_PI/180 );
 
         pub_joint_velocity_->publish(joint_velocity_msg);
-
-        if(current_time_from_start >= traj_command_points_[traj_command_points_index_].time_from_start)
-        {
-            RCLCPP_INFO_STREAM(nh_->get_logger(), "Moved to point " << traj_command_points_index_++);
-            for(int i=0; i<num_possible_joints; i++) // store next angle commands per joint
-                current_velocity_command[i] = kinova_angle_command_[traj_command_points_index_][i];
-
-            // if the last command is reached, calculate remaining motion time
-            if(traj_command_points_index_ == kinova_angle_command_.size()-1)
-            {
-                const double t1 = traj_command_points_[traj_command_points_index_ -1].time_from_start.sec + traj_command_points_[traj_command_points_index_ -1].time_from_start.nanosec / 1000000000;
-                for(int i=0; i<number_joint_; i++)
-                {
-                    current_velocity_command[i] = kinova_angle_command_[traj_command_points_index_ - 1][i];
-                    const double position_delta = traj_command_points_[traj_command_points_index_].positions[i] - traj_command_points_[traj_command_points_index_-1].positions[i];
-                    remaining_motion_time[i] = t1 + position_delta / (current_velocity_command[i] * M_PI / 180.);
-                }
-            }            
-        }
     }
     else // if come accross all the points, then stop timer.
     {
