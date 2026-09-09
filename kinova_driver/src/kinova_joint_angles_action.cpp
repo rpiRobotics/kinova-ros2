@@ -72,12 +72,12 @@ KinovaAnglesActionServer::KinovaAnglesActionServer(KinovaComm &arm_comm, const s
     if (!node_driver_->has_parameter("jointSpeedLimitParameter2"))
         node_driver_->declare_parameter("jointSpeedLimitParameter2", 10);
 
-    node_handle_->get_parameter("stall_interval_seconds", stall_interval_seconds_);
-    node_handle_->get_parameter("stall_threshold", stall_threshold_);
-    node_handle_->get_parameter("rate_hz", rate_hz_);
-    node_handle_->get_parameter("tolerance", tolerance);
-    node_driver_->get_parameter("jointSpeedLimitParameter1", jointSpeedLimitJoints123);
-    node_driver_->get_parameter("jointSpeedLimitParameter2", jointSpeedLimitJoints456);
+    stall_interval_seconds_ =  node_handle_->get_parameter("stall_interval_seconds").as_double();
+    stall_threshold_ = node_handle_->get_parameter("stall_threshold").as_double();
+    rate_hz_ = node_handle_->get_parameter("rate_hz").as_double();
+    tolerance = node_handle_->get_parameter("tolerance").as_double();
+    jointSpeedLimitJoints123 = node_driver_->get_parameter("jointSpeedLimitParameter1").as_int();
+    jointSpeedLimitJoints456 = node_driver_->get_parameter("jointSpeedLimitParameter2").as_int();
 
     tolerance_ = (float)tolerance;
 

@@ -66,10 +66,10 @@ KinovaFingersActionServer::KinovaFingersActionServer(KinovaComm &arm_comm, const
     if (!node_handle_->has_parameter("tolerance"))
         node_handle_->declare_parameter("tolerance", tolerance);
 
-    node_handle_->get_parameter("stall_interval_seconds", stall_interval_seconds_);
-    node_handle_->get_parameter("stall_threshold", stall_threshold_);
-    node_handle_->get_parameter("rate_hz", rate_hz_);
-    node_handle_->get_parameter("tolerance", tolerance);
+    stall_interval_seconds_ = node_handle_->get_parameter("stall_interval_seconds").as_double();
+    stall_threshold_ = node_handle_->get_parameter("stall_threshold").as_double();
+    rate_hz_ = node_handle_->get_parameter("rate_hz").as_double();
+    tolerance = node_handle_->get_parameter("tolerance").as_double();
 
     tolerance_ = static_cast<float>(tolerance);
 
