@@ -147,6 +147,7 @@ void KinovaAnglesActionServer::execute(const std::shared_ptr<GoalHandleArmJointA
         last_nonstall_angles_ = current_joint_angles;
 
         KinovaAngles target(goal->angles);
+        current_joint_angles.applyShortestAngleDistanceTo(target);
         arm_comm_.setJointAngles(target,jointSpeedLimitJoints123,jointSpeedLimitJoints456);
 
         // Loop until the action completed, is preempted, or fails in some way.

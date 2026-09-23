@@ -465,6 +465,27 @@ kinova_msgs::msg::JointAngles KinovaAngles::constructAnglesMsg()
     return angles;
 }
 
+void KinovaAngles::applyShortestAngleDistanceTo(KinovaAngles &target_angle) const
+{
+    auto wrapToShortestDelta = [](double current, double target) {
+        double delta = target - current;
+        while (delta > 180.0) {
+            delta -= 360.0;
+        }
+        while (delta < -180.0) {
+            delta += 360.0;
+        }
+        return current + delta;
+    };
+
+    target_angle.Actuator1 = wrapToShortestDelta(Actuator1, target_angle.Actuator1);
+    target_angle.Actuator2 = wrapToShortestDelta(Actuator2, target_angle.Actuator2);
+    target_angle.Actuator3 = wrapToShortestDelta(Actuator3, target_angle.Actuator3);
+    target_angle.Actuator4 = wrapToShortestDelta(Actuator4, target_angle.Actuator4);
+    target_angle.Actuator5 = wrapToShortestDelta(Actuator5, target_angle.Actuator5);
+    target_angle.Actuator6 = wrapToShortestDelta(Actuator6, target_angle.Actuator6);
+    target_angle.Actuator7 = wrapToShortestDelta(Actuator7, target_angle.Actuator7);
+}
 
 /**
  * @brief check all the joint values, to determine if current KinovaAngles reach "other"
@@ -493,9 +514,9 @@ bool KinovaAngles::isCloseToOther(const KinovaAngles &other, float tolerance) co
                         areValuesClose(fmod(Actuator5, 360.0), fmod(other.Actuator5, 360.0) + 360, tolerance));
     status = status && (areValuesClose(fmod(Actuator6, 360.0), fmod(other.Actuator6, 360.0), tolerance) ||
                         areValuesClose(fmod(Actuator6, 360.0) + 360, fmod(other.Actuator6, 360.0), tolerance) ||
-                        areValuesClose(fmod(Actuator6, 360.0), fmod(other.Actuator7, 360.0) + 360, tolerance));
+                        areValuesClose(fmod(Actuator6, 360.0), fmod(other.Actuator6, 360.0) + 360, tolerance));
     status = status && (areValuesClose(fmod(Actuator7, 360.0), fmod(other.Actuator7, 360.0), tolerance) ||
-                        areValuesClose(fmod(Actuator7, 360.0) + 360, fmod(other.Actuator6, 360.0), tolerance) ||
+                        areValuesClose(fmod(Actuator7, 360.0) + 360, fmod(other.Actuator7, 360.0), tolerance) ||
                         areValuesClose(fmod(Actuator7, 360.0), fmod(other.Actuator7, 360.0) + 360, tolerance));
 
     return status;
