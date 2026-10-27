@@ -142,6 +142,7 @@ class KinovaArm
     void statusTimer();
 
     void publishJointAngles(void);
+    void publishJointCommand(void);
     void publishToolPosition(void);
     void publishToolWrench(void);
     void publishFingerPosition(void);
@@ -187,7 +188,8 @@ class KinovaArm
     rclcpp::Service<kinova_msgs::srv::SetEndEffectorOffset>::SharedPtr set_end_effector_offset_service_;
 
     // Timers for control loops
-    rclcpp::TimerBase::SharedPtr status_timer_;
+    rclcpp::TimerBase::SharedPtr publish_joint_angles_timer_;
+    rclcpp::TimerBase::SharedPtr publish_joint_command_timer;
 
     // Parameters
     std::string kinova_robotType_;

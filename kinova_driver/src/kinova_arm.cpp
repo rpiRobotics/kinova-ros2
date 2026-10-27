@@ -232,10 +232,18 @@ KinovaArm::KinovaArm(KinovaComm &arm, const std::shared_ptr<rclcpp::Node> nodeHa
     cartesian_force_subscriber_ = node_handle_->create_subscription<kinova_msgs::msg::CartesianForce>(pubsub_prefix+"in/cartesian_force", 1,
                                  std::bind(&KinovaArm::forceSubscriberCallback, this, std::placeholders::_1));
 
-    double status_interval_seconds_ = 0.1;
-    if (!node_handle_->has_parameter("status_interval_seconds"))
-        node_handle_->declare_parameter("status_interval_seconds", status_interval_seconds_);
-    node_handle_->get_parameter("status_interval_seconds", status_interval_seconds_);
+    double publish_joint_angles_rate_hz_ = 100;
+    double publish_joint_command_rate_hz_ = 20;
+    if (!node_handle_->has_parameter("publish_joint_angles_rate_hz"))
+        node_handle_->declare_parameter("publish_joint_angles_rate_hz", publish_joint_angles_rate_hz_);
+    node_handle_->get_parameter("publish_joint_angles_rate_hz", publish_joint_angles_rate_hz_);
+    if (!node_handle_->has_parameter("publish_joint_command_rate_hz"))
+        node_handle_->declare_parameter("publish_joint_command_rate_hz", publish_joint_command_rate_hz_);
+    node_handle_->get_parameter("publish_joint_command_rate_hz", publish_joint_command_rate_hz_);
+    int publish_joint_angles_rate_ms_ = std::lround(1000.0 / publish_joint_angles_rate_hz_);
+    int publish_joint_command_rate_ms_ = std::lround(1000.0 / publish_joint_command_rate_hz_);
+    RCLCPP_INFO(node_handle_->get_logger(), "Publishing joint angles at %lf Hz (%d ms)", publish_joint_angles_rate_hz_, publish_joint_angles_rate_ms_);
+    RCLCPP_INFO(node_handle_->get_logger(), "Publishing joint angles at %lf Hz (%d ms)", publish_joint_command_rate_hz_, publish_joint_command_rate_ms_);
 
     // Depending on the API version, the arm might return velocities in the
     // 0..360 range (0..180 for positive values, 181..360 for negative ones).
@@ -246,7 +254,8 @@ KinovaArm::KinovaArm(KinovaComm &arm, const std::shared_ptr<rclcpp::Node> nodeHa
         node_handle_->declare_parameter("convert_joint_velocities", convert_joint_velocities_);
     node_handle_->get_parameter("convert_joint_velocities", convert_joint_velocities_);
 
-    status_timer_ = node_handle_->create_wall_timer(std::chrono::milliseconds(int(status_interval_seconds_*1000)), std::bind(&KinovaArm::statusTimer, this));
+    this->publish_joint_angles_timer_ = node_handle_->create_wall_timer(std::chrono::milliseconds(publish_joint_angles_rate_ms_), std::bind(&KinovaArm::publishJointAngles, this));
+    this->publish_joint_command_timer = node_handle_->create_wall_timer(std::chrono::milliseconds(publish_joint_command_rate_ms_), std::bind(&KinovaArm::publishJointCommand, this));
 
     RCLCPP_INFO(node_handle_->get_logger(), "The arm is ready to use.");
 }
@@ -626,6 +635,7 @@ void KinovaArm::publishJointAngles(void)
 
     FingerAngles fingers;
     kinova_comm_.getFingerPositions(fingers);
+    finger_position_publisher_->publish(fingers.constructFingersMsg());
 
     if (arm_joint_number_ != 4 && arm_joint_number_ != 6 && arm_joint_number_ != 7)
     {
@@ -636,10 +646,6 @@ void KinovaArm::publishJointAngles(void)
     KinovaAngles current_angles;
     kinova_comm_.getJointAngles(current_angles);
     kinova_msgs::msg::JointAngles kinova_angles = current_angles.constructAnglesMsg();
-
-    AngularPosition joint_command;
-    kinova_comm_.getAngularCommand(joint_command);
-    kinova_msgs::msg::JointAngles joint_command_msg = KinovaAngles(joint_command.Actuators).constructAnglesMsg();
 
     sensor_msgs::msg::JointState joint_state;
     joint_state.name = joint_names_;
@@ -751,10 +757,16 @@ void KinovaArm::publishJointAngles(void)
         joint_state.effort[6] = joint_tqs.Actuator7;
     }
 
-    joint_angles_publisher_->publish(kinova_angles);
-    joint_command_publisher_->publish(joint_command_msg);
+    // joint_angles_publisher_->publish(kinova_angles);
     joint_state_publisher_->publish(joint_state);
+}
 
+void KinovaArm::publishJointCommand(void)
+{
+    AngularPosition joint_command;
+    kinova_comm_.getAngularCommand(joint_command);
+    kinova_msgs::msg::JointAngles joint_command_msg = KinovaAngles(joint_command.Actuators).constructAnglesMsg();
+    joint_command_publisher_->publish(joint_command_msg);
 }
 
 /*!
@@ -819,7 +831,6 @@ void KinovaArm::statusTimer()
     publishJointAngles();
     publishToolPosition();
     publishToolWrench();
-    publishFingerPosition();
 }
 
 }  // namespace kinova
