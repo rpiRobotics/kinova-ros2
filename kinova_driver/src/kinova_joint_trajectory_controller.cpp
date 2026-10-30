@@ -357,6 +357,8 @@ void JointTrajectoryController::update_state()
         // RCLCPP_WARN_STREAM(nh_->get_logger(), "I'm publishing after second: " << (nh_->get_clock()->now().seconds() - previous_pub_.seconds()));
         pub_joint_feedback_->publish(traj_feedback_msg_);
         previous_pub_ = nh_->get_clock()->now();
+
+        // Runs at 10 Hz
         rclcpp::Rate(10).sleep();
     }
     //RCLCPP_DEBUG_STREAM_ONCE(nh_->get_logger(), "Get out: " << __PRETTY_FUNCTION__);

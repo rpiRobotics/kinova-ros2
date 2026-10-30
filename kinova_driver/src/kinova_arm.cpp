@@ -201,22 +201,22 @@ KinovaArm::KinovaArm(KinovaComm &arm, const std::shared_ptr<rclcpp::Node> nodeHa
         std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
 
     /* Set up Publishers */
-    joint_angles_publisher_ = node_handle_->create_publisher<kinova_msgs::msg::JointAngles>
-            (pubsub_prefix+"out/joint_angles", 1);
+    // joint_angles_publisher_ = node_handle_->create_publisher<kinova_msgs::msg::JointAngles>
+    //         (pubsub_prefix+"out/joint_angles", 1);
     joint_torque_publisher_ = node_handle_->create_publisher<kinova_msgs::msg::JointAngles>
             (pubsub_prefix+"out/joint_torques", 1);
     joint_state_publisher_ = node_handle_->create_publisher<sensor_msgs::msg::JointState>
             (pubsub_prefix+"out/joint_state", 1);
-    tool_position_publisher_ = node_handle_->create_publisher<geometry_msgs::msg::PoseStamped>
-            (pubsub_prefix+"out/tool_pose", 1);
-    tool_wrench_publisher_ = node_handle_->create_publisher<geometry_msgs::msg::WrenchStamped>
-            (pubsub_prefix+"out/tool_wrench", 1);
+    // tool_position_publisher_ = node_handle_->create_publisher<geometry_msgs::msg::PoseStamped>
+    //         (pubsub_prefix+"out/tool_pose", 1);
+    // tool_wrench_publisher_ = node_handle_->create_publisher<geometry_msgs::msg::WrenchStamped>
+    //         (pubsub_prefix+"out/tool_wrench", 1);
     finger_position_publisher_ = node_handle_->create_publisher<kinova_msgs::msg::FingerPosition>
             (pubsub_prefix+"out/finger_position", 1);
 
     // Publish last command for relative motion (read current position cause arm drop)
     joint_command_publisher_ = node_handle_->create_publisher<kinova_msgs::msg::JointAngles>(pubsub_prefix+"out/joint_command", 1);
-    cartesian_command_publisher_ = node_handle_->create_publisher<kinova_msgs::msg::KinovaPose>(pubsub_prefix+"out/cartesian_command", 1);
+    // cartesian_command_publisher_ = node_handle_->create_publisher<kinova_msgs::msg::KinovaPose>(pubsub_prefix+"out/cartesian_command", 1);
 
     /* Set up Subscribers*/
     joint_velocity_subscriber_ = node_handle_->create_subscription<kinova_msgs::msg::JointVelocity>(pubsub_prefix+"in/joint_velocity", 1,
