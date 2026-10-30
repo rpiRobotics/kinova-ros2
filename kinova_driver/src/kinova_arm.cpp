@@ -232,8 +232,8 @@ KinovaArm::KinovaArm(KinovaComm &arm, const std::shared_ptr<rclcpp::Node> nodeHa
     cartesian_force_subscriber_ = node_handle_->create_subscription<kinova_msgs::msg::CartesianForce>(pubsub_prefix+"in/cartesian_force", 1,
                                  std::bind(&KinovaArm::forceSubscriberCallback, this, std::placeholders::_1));
 
-    double publish_joint_angles_rate_hz_ = 100;
-    double publish_joint_command_rate_hz_ = 20;
+    double publish_joint_angles_rate_hz_ = 10;
+    double publish_joint_command_rate_hz_ = 10;
     if (!node_handle_->has_parameter("publish_joint_angles_rate_hz"))
         node_handle_->declare_parameter("publish_joint_angles_rate_hz", publish_joint_angles_rate_hz_);
     node_handle_->get_parameter("publish_joint_angles_rate_hz", publish_joint_angles_rate_hz_);
